@@ -1,0 +1,64 @@
+
+// use prisma-8
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String
+  username     String?  @unique
+  name         String?
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  projects     Project[]
+  assignments  TaskAssignment[]
+  corrections  TaskCorrection[]
+}
+
+model Project {
+  id           Int      @id @default(autoincrement())
+  name         String
+  description  String?
+  ownerId      Int
+  owner        User     @relation(fields: [ownerId], references: [id])
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  tasks        Task[]
+}
+
+model Task {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  status       String   @default("TODO")
+  deadline     TimestamptzString?
+  projectId    Int
+  project      Project  @relation(fields: [projectId], references: [id])
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
+
+  assignments  TaskAssignment[]
+  corrections  TaskCorrection[]
+}
+
+model TaskAssignment {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  userId       Int
+  task         Task     @relation(fields: [taskId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+  assignedAt   TimestamptzString @default(now())
+}
+
+model TaskCorrection {
+  id           Int      @id @default(autoincrement())
+  taskId       Int
+  userId       Int
+  comment      String
+  status       String   @default("PENDING")
+  task         Task     @relation(fields: [taskId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    TimestamptzString @default(now())
+  updatedAt    temporal.updatedAtString()
+}
