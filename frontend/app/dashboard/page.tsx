@@ -60,7 +60,7 @@ export default function DashboardPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/projects', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -81,7 +81,7 @@ export default function DashboardPage() {
         projectList.map(async (project) => {
           try {
             const taskResponse = await fetch(
-              `http://localhost:4000/projects/${project.id}/tasks`,
+              `${process.env.NEXT_PUBLIC_API_URL}/projects/${project.id}/tasks`,
               {
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -90,10 +90,7 @@ export default function DashboardPage() {
             );
 
             if (!taskResponse.ok) {
-              return [
-                project.id,
-                { total: 0, completed: 0 },
-              ] as const;
+              return [project.id, { total: 0, completed: 0 }] as const;
             }
 
             const taskData = await taskResponse.json();
@@ -109,10 +106,7 @@ export default function DashboardPage() {
               },
             ] as const;
           } catch {
-            return [
-              project.id,
-              { total: 0, completed: 0 },
-            ] as const;
+            return [project.id, { total: 0, completed: 0 }] as const;
           }
         }),
       );
@@ -148,7 +142,7 @@ export default function DashboardPage() {
     setCreating(true);
 
     try {
-      const response = await fetch('http://localhost:4000/projects', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`,  {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,6 +205,7 @@ export default function DashboardPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-xl font-black">
               P
             </div>
+
             <div>
               <h1 className="text-xl font-extrabold tracking-tight">
                 Project<span className="text-indigo-300">Mate</span>
@@ -247,6 +242,31 @@ export default function DashboardPage() {
               >
                 <span>＋</span> New Project
               </a>
+
+              <Link
+                href="/dashboard/ai-assistant"
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+              >
+                <span>✦</span> AI Research Assistant
+              </Link>
+
+              <Link
+                href="/dashboard/research-consistency"
+                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+              >
+                <span>⇄</span> Research Consistency
+              </Link>
+              
+<Link
+  href="/dashboard/research-coach"
+  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+>
+  <span className="text-xl" aria-hidden="true">
+    🧠
+  </span>
+  <span>Research Coach</span>
+</Link>
+
             </nav>
           </div>
 
@@ -293,9 +313,7 @@ export default function DashboardPage() {
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="pr-2">
-                <p className="text-sm font-bold text-slate-800">
-                  {userName}
-                </p>
+                <p className="text-sm font-bold text-slate-800">{userName}</p>
                 <p className="text-xs text-slate-500">Student account</p>
               </div>
             </div>
@@ -348,9 +366,7 @@ export default function DashboardPage() {
 
             <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">
-                  Total tasks
-                </p>
+                <p className="text-sm font-medium text-slate-500">Total tasks</p>
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-lg text-sky-600">
                   ☷
                 </span>
@@ -516,8 +532,7 @@ export default function DashboardPage() {
                   Your first project starts here
                 </h3>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                  Create a project above to begin organizing your academic
-                  work.
+                  Create a project above to begin organizing your academic work.
                 </p>
                 <a
                   href="#new-project"
@@ -535,9 +550,7 @@ export default function DashboardPage() {
                   };
 
                   const progress = stats.total
-                    ? Math.round(
-                        (stats.completed / stats.total) * 100,
-                      )
+                    ? Math.round((stats.completed / stats.total) * 100)
                     : 0;
 
                   return (
@@ -560,15 +573,12 @@ export default function DashboardPage() {
                       </h3>
 
                       <p className="mt-2 min-h-12 break-words text-sm leading-6 text-slate-500">
-                        {project.description ||
-                          'No description provided yet.'}
+                        {project.description || 'No description provided yet.'}
                       </p>
 
                       <div className="mt-5 border-t border-slate-100 pt-4">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-500">
-                            Task progress
-                          </span>
+                          <span className="text-slate-500">Task progress</span>
                           <span className="font-bold text-indigo-600">
                             {progress}%
                           </span>

@@ -1,4 +1,3 @@
-
 import {
   Body,
   Controller,
@@ -6,6 +5,8 @@ import {
   Post,
   Request,
   UseGuards,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -32,6 +33,30 @@ export class ProjectsController {
   findAll(@Request() req: any) {
     return this.projectsService.findAll(
       Number(req.user.sub),
+    );
+  }
+
+  @Post(':projectId/research-coach-reports')
+  saveResearchCoachReport(
+    @Request() req: any,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Body() data: { title: string; content: string },
+  ) {
+    return this.projectsService.saveResearchCoachReport(
+      Number(req.user.sub),
+      projectId,
+      data,
+    );
+  }
+
+  @Get(':projectId/research-coach-reports')
+  findResearchCoachReports(
+    @Request() req: any,
+    @Param('projectId', ParseIntPipe) projectId: number,
+  ) {
+    return this.projectsService.findResearchCoachReports(
+      Number(req.user.sub),
+      projectId,
     );
   }
 }

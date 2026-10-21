@@ -57,6 +57,7 @@ export class TasksService {
     };
   }
 
+
   async findAll(userId: number, projectId: number) {
     const projects = await db.orm.public.Project
       .where({ id: projectId, ownerId: userId })
@@ -72,8 +73,42 @@ export class TasksService {
       .where({ projectId })
       .all();
 
-    return { tasks };
+    const tasksWithAssignees = [];
+
+    for (const task of tasks) {
+      const assignments = await db.orm.public.TaskAssignment
+        .where({ taskId: task.id })
+        .all();
+
+      const assignees = [];
+
+      for (const assignment of assignments) {
+        const matchingUsers = await db.orm.public.User
+          .where({ id: assignment.userId })
+          .limit(1)
+          .all();
+
+        if (matchingUsers.length > 0) {
+          const user = matchingUsers[0];
+
+          assignees.push({
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+          });
+        }
+      }
+
+      tasksWithAssignees.push({
+        ...task,
+        assignees,
+      });
+    }
+
+    return { tasks: tasksWithAssignees };
   }
+
   
   async updateStatus(
     userId: number,
@@ -191,8 +226,10 @@ export class TasksService {
     projectId: number,
     taskId: number,
     comment: string,
-  ) {
+  ) 
+  {
     const cleanComment = comment?.trim();
+    
 
     if (!cleanComment) {
       throw new BadRequestException(
@@ -232,4 +269,107 @@ export class TasksService {
       correction,
     };
   }
+  
+  async findCorrections(
+    userId: number,
+    projectId: number,
+    taskId: number,
+  ) {
+    const projects = await db.orm.public.Project
+      .where({ id: projectId, ownerId: userId })
+      .select('id')
+      .limit(1)
+      .all();
+
+    if (projects.length === 0) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const tasks = await db.orm.public.Task
+      .where({ id: taskId, projectId })
+      .select('id')
+      .limit(1)
+      .all();
+
+    if (tasks.length === 0) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    const corrections = await db.orm.public.TaskCorrection
+      .where({ taskId })
+      .all();
+
+    const results = [];
+
+    for (const correction of corrections) {
+      const authors = await db.orm.public.User
+        .where({ id: correction.userId })
+        .select('id', 'name', 'username', 'email')
+        .limit(1)
+        .all();
+
+      results.push({
+        ...correction,
+        author: authors[0] ?? null,
+      });
+    }
+
+    return { corrections: results };
+  }
+
+  async updateCorrectionStatus(
+    userId: number,
+    projectId: number,
+    taskId: number,
+    correctionId: number,
+    status: string,
+  ) {
+    const allowedStatuses = ['PENDING', 'COMPLETED'];
+
+    if (!allowedStatuses.includes(status)) {
+      throw new BadRequestException(
+        'Status must be PENDING or COMPLETED.',
+      );
+    }
+
+    const projects = await db.orm.public.Project
+      .where({ id: projectId, ownerId: userId })
+      .select('id')
+      .limit(1)
+      .all();
+
+    if (projects.length === 0) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const tasks = await db.orm.public.Task
+      .where({ id: taskId, projectId })
+      .select('id')
+      .limit(1)
+      .all();
+
+    if (tasks.length === 0) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    const corrections = await db.orm.public.TaskCorrection
+      .where({ id: correctionId, taskId })
+      .select('id')
+      .limit(1)
+      .all();
+
+    if (corrections.length === 0) {
+      throw new NotFoundException('Correction not found.');
+    }
+
+    const updatedCorrection = await db.orm.public.TaskCorrection
+      .where({ id: correctionId, taskId })
+      .update({ status });
+
+    return {
+      message: 'Correction status updated successfully.',
+      correction: updatedCorrection,
+    };
+  }
+
 }

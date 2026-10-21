@@ -1,7 +1,13 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+} from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -11,12 +17,20 @@ type Project = {
   description: string | null;
 };
 
+type Assignee = {
+  id: number;
+  name: string | null;
+  username: string | null;
+  email: string;
+};
+
 type Task = {
   id: number;
   title: string;
   description?: string | null;
   status: 'TODO' | 'IN_PROGRESS' | 'COMPLETED';
   deadline?: string | null;
+  assignees?: Assignee[];
 };
 
 type User = {
@@ -26,13 +40,21 @@ type User = {
   email: string;
 };
 
-const API = 'http://localhost:4000';
+type Correction = {
+  id: number;
+  taskId: number;
+  userId: number;
+  comment: string;
+  status: string;
+  author?: {
+    id: number;
+    name: string | null;
+    username: string | null;
+    email: string;
+  } | null;
+};
 
-function statusLabel(status: Task['status']) {
-  if (status === 'COMPLETED') return 'Completed';
-  if (status === 'IN_PROGRESS') return 'In progress';
-  return 'To do';
-}
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 async function readResponse(response: Response): Promise<any> {
   const text = await response.text();
@@ -46,13 +68,31 @@ async function readResponse(response: Response): Promise<any> {
   }
 }
 
-export default function ProjectWorkspacePage() {
+function statusLabel(status: Task['status']) {
+  if (status === 'COMPLETED') return 'Completed';
+  if (status === 'IN_PROGRESS') return 'In progress';
+  return 'To do';
+}
+
+function ProjectWorkspaceContent() {
   const params = useParams<{ id: string }>();
   const projectId = params.id;
 
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+
+  const [corrections, setCorrections] = useState<
+    Record<number, Correction[]>
+  >({});
+  const [correctionInputs, setCorrectionInputs] = useState<
+    Record<number, string>
+  >({});
+  const [savingCorrectionTaskId, setSavingCorrectionTaskId] =
+    useState<number | null>(null);
+  const [updatingCorrectionId, setUpdatingCorrectionId] =
+    useState<number | null>(null);
+
   const [selectedUsers, setSelectedUsers] = useState<
     Record<number, string>
   >({});
@@ -67,6 +107,17 @@ export default function ProjectWorkspacePage() {
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState('');
 
+  const getToken = () => {
+    const token = localStorage.getItem('projectmate_token');
+
+    if (!token) {
+      window.location.href = '/login';
+      return null;
+    }
+
+    return token;
+  };
+
   const loadWorkspace = useCallback(async () => {
     const token = localStorage.getItem('projectmate_token');
 
@@ -77,17 +128,13 @@ export default function ProjectWorkspacePage() {
 
     try {
       setLoading(true);
-      setMessage('');
 
       const headers = {
-        Authorization: 'Bearer ' + token,
+        Authorization: `Bearer ${token}`,
       };
 
-      // Load projects
-      const projectResponse = await fetch(API + '/projects', {
-        headers,
-      });
-
+      // Load the user's projects.
+      const projectResponse = await fetch(`${API}/projects`, { headers });
       const projectData = await readResponse(projectResponse);
 
       if (!projectResponse.ok) {
@@ -113,12 +160,11 @@ export default function ProjectWorkspacePage() {
 
       setProject(foundProject);
 
-      // Load tasks
+      // Load the project's tasks.
       const taskResponse = await fetch(
-        API + '/projects/' + projectId + '/tasks',
+        `${API}/projects/${projectId}/tasks`,
         { headers },
       );
-
       const taskData = await readResponse(taskResponse);
 
       if (!taskResponse.ok) {
@@ -135,11 +181,8 @@ export default function ProjectWorkspacePage() {
 
       setTasks(taskList);
 
-      // Load registered users
-      const usersResponse = await fetch(API + '/users', {
-        headers,
-      });
-
+      // Load registered users for task assignment.
+      const usersResponse = await fetch(`${API}/users`, { headers });
       const usersData = await readResponse(usersResponse);
 
       if (!usersResponse.ok) {
@@ -170,16 +213,11 @@ export default function ProjectWorkspacePage() {
     void loadWorkspace();
   }, [loadWorkspace]);
 
-  async function createTask(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setMessage('');
+  async function createTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    const token = localStorage.getItem('projectmate_token');
-
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
+    const token = getToken();
+    if (!token) return;
 
     if (!title.trim()) {
       setMessage('Please enter a task title.');
@@ -187,6 +225,7 @@ export default function ProjectWorkspacePage() {
     }
 
     setCreating(true);
+    setMessage('');
 
     try {
       const body: {
@@ -199,7 +238,7 @@ export default function ProjectWorkspacePage() {
       };
 
       if (deadline) {
-        const deadlineDate = new Date(deadline + 'T23:59:00');
+        const deadlineDate = new Date(`${deadline}T23:59:00`);
 
         if (Number.isNaN(deadlineDate.getTime())) {
           throw new Error('Please enter a valid deadline.');
@@ -209,12 +248,12 @@ export default function ProjectWorkspacePage() {
       }
 
       const response = await fetch(
-        API + '/projects/' + projectId + '/tasks',
+        `${API}/projects/${projectId}/tasks`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + token,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(body),
         },
@@ -229,14 +268,12 @@ export default function ProjectWorkspacePage() {
       setTitle('');
       setDescription('');
       setDeadline('');
-      setMessage('Task created successfully.');
 
       await loadWorkspace();
+      setMessage('Task created successfully.');
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to create task.',
+        error instanceof Error ? error.message : 'Unable to create task.',
       );
     } finally {
       setCreating(false);
@@ -244,12 +281,8 @@ export default function ProjectWorkspacePage() {
   }
 
   async function updateTaskStatus(task: Task) {
-    const token = localStorage.getItem('projectmate_token');
-
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
+    const token = getToken();
+    if (!token) return;
 
     const nextStatus: Task['status'] =
       task.status === 'TODO'
@@ -262,12 +295,12 @@ export default function ProjectWorkspacePage() {
       setMessage('');
 
       const response = await fetch(
-        API + '/projects/' + projectId + '/tasks/' + task.id + '/status',
+        `${API}/projects/${projectId}/tasks/${task.id}/status`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + token,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ status: nextStatus }),
         },
@@ -276,37 +309,28 @@ export default function ProjectWorkspacePage() {
       const data = await readResponse(response);
 
       if (!response.ok) {
-        throw new Error(
-          data.message || 'Could not update task status.',
-        );
+        throw new Error(data.message || 'Could not update task status.');
       }
 
       setTasks((current) =>
         current.map((item) =>
-          item.id === task.id
-            ? { ...item, status: nextStatus }
-            : item,
+          item.id === task.id ? { ...item, status: nextStatus } : item,
         ),
       );
 
-      setMessage('Task status updated.');
+      setMessage('Task status updated successfully.');
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Unable to update task.',
+        error instanceof Error ? error.message : 'Unable to update task.',
       );
     }
   }
 
   async function assignTask(task: Task) {
-    const token = localStorage.getItem('projectmate_token');
-    const selectedUserId = selectedUsers[task.id];
+    const token = getToken();
+    if (!token) return;
 
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
+    const selectedUserId = selectedUsers[task.id];
 
     if (!selectedUserId) {
       setMessage('Please select a user before assigning this task.');
@@ -318,12 +342,12 @@ export default function ProjectWorkspacePage() {
 
     try {
       const response = await fetch(
-        API + '/projects/' + projectId + '/tasks/' + task.id + '/assign',
+        `${API}/projects/${projectId}/tasks/${task.id}/assign`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + token,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             assignedUserId: Number(selectedUserId),
@@ -337,15 +361,149 @@ export default function ProjectWorkspacePage() {
         throw new Error(data.message || 'Could not assign task.');
       }
 
-      setMessage('Task "' + task.title + '" assigned successfully.');
+      await loadWorkspace();
+      setMessage(`Task "${task.title}" assigned successfully.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : 'Unable to assign task.',
+      );
+    } finally {
+      setAssigningTaskId(null);
+    }
+  }
+
+  async function loadCorrections(task: Task) {
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `${API}/projects/${projectId}/tasks/${task.id}/corrections`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const data = await readResponse(response);
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || 'Could not load task corrections.',
+        );
+      }
+
+      setCorrections((current) => ({
+        ...current,
+        [task.id]: Array.isArray(data.corrections)
+          ? data.corrections
+          : [],
+      }));
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Unable to assign task.',
+          : 'Unable to load task corrections.',
+      );
+    }
+  }
+
+  async function submitCorrection(task: Task) {
+    const token = getToken();
+    if (!token) return;
+
+    const comment = (correctionInputs[task.id] ?? '').trim();
+
+    if (!comment) {
+      setMessage('Please enter a correction or feedback comment.');
+      return;
+    }
+
+    setSavingCorrectionTaskId(task.id);
+    setMessage('');
+
+    try {
+      const response = await fetch(
+        `${API}/projects/${projectId}/tasks/${task.id}/corrections`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ comment }),
+        },
+      );
+
+      const data = await readResponse(response);
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || 'Could not submit correction.',
+        );
+      }
+
+      setCorrectionInputs((current) => ({
+        ...current,
+        [task.id]: '',
+      }));
+
+      await loadCorrections(task);
+      setMessage('Correction submitted successfully.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to submit correction.',
       );
     } finally {
-      setAssigningTaskId(null);
+      setSavingCorrectionTaskId(null);
+    }
+  }
+
+  async function updateCorrectionStatus(
+    task: Task,
+    correctionId: number,
+    status: 'PENDING' | 'COMPLETED',
+  ) {
+    const token = getToken();
+    if (!token) return;
+
+    setUpdatingCorrectionId(correctionId);
+    setMessage('');
+
+    try {
+      const response = await fetch(
+        `${API}/projects/${projectId}/tasks/${task.id}/corrections/${correctionId}/status`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        },
+      );
+
+      const data = await readResponse(response);
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || 'Could not update correction status.',
+        );
+      }
+
+      await loadCorrections(task);
+      setMessage('Correction status updated successfully.');
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Unable to update correction status.',
+      );
+    } finally {
+      setUpdatingCorrectionId(null);
     }
   }
 
@@ -420,7 +578,7 @@ export default function ProjectWorkspacePage() {
               <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/20">
                 <div
                   className="h-full rounded-full bg-white transition-all"
-                  style={{ width: progress + '%' }}
+                  style={{ width: `${progress}%` }}
                 />
               </div>
             </header>
@@ -455,7 +613,7 @@ export default function ProjectWorkspacePage() {
                   <input
                     id="task-title"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(event) => setTitle(event.target.value)}
                     placeholder="e.g. Complete Chapter One"
                     required
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
@@ -472,7 +630,9 @@ export default function ProjectWorkspacePage() {
                   <textarea
                     id="task-description"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(event) =>
+                      setDescription(event.target.value)
+                    }
                     placeholder="Describe what needs to be done"
                     rows={3}
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
@@ -490,7 +650,7 @@ export default function ProjectWorkspacePage() {
                     id="task-deadline"
                     type="date"
                     value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
+                    onChange={(event) => setDeadline(event.target.value)}
                     className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 sm:max-w-sm"
                   />
                 </div>
@@ -510,8 +670,7 @@ export default function ProjectWorkspacePage() {
                 <div>
                   <h2 className="text-2xl font-extrabold">Project tasks</h2>
                   <p className="mt-2 text-sm text-slate-500">
-                    Update tasks as your work progresses or assign them to
-                    registered users.
+                    Track progress, assign tasks, and manage feedback.
                   </p>
                 </div>
 
@@ -532,7 +691,7 @@ export default function ProjectWorkspacePage() {
                   </p>
                 </div>
               ) : (
-                <div className="mt-5 space-y-4">
+                <div className="mt-5 space-y-5">
                   {tasks.map((task) => (
                     <article
                       key={task.id}
@@ -554,61 +713,6 @@ export default function ProjectWorkspacePage() {
                               ? new Date(task.deadline).toLocaleDateString()
                               : 'Not set'}
                           </p>
-
-                          <div className="mt-4 max-w-md">
-                            <label
-                              htmlFor={'assign-user-' + task.id}
-                              className="mb-2 block text-sm font-semibold text-slate-700"
-                            >
-                              Assign this task to
-                            </label>
-
-                            <div className="flex flex-col gap-2 sm:flex-row">
-                              <select
-                                id={'assign-user-' + task.id}
-                                value={selectedUsers[task.id] ?? ''}
-                                onChange={(e) =>
-                                  setSelectedUsers((current) => ({
-                                    ...current,
-                                    [task.id]: e.target.value,
-                                  }))
-                                }
-                                className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                              >
-                                <option value="">
-                                  Select a registered user
-                                </option>
-
-                                {users.map((user) => (
-                                  <option key={user.id} value={user.id}>
-                                    {user.name || user.username || user.email}
-                                    {' (' + user.email + ')'}
-                                  </option>
-                                ))}
-                              </select>
-
-                              <button
-                                type="button"
-                                onClick={() => void assignTask(task)}
-                                disabled={
-                                  assigningTaskId === task.id ||
-                                  users.length === 0
-                                }
-                                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {assigningTaskId === task.id
-                                  ? 'Assigning...'
-                                  : 'Assign task'}
-                              </button>
-                            </div>
-
-                            {users.length === 0 && (
-                              <p className="mt-2 text-xs text-slate-500">
-                                No registered users were found. Register
-                                another account to test task assignment.
-                              </p>
-                            )}
-                          </div>
                         </div>
 
                         <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
@@ -637,6 +741,246 @@ export default function ProjectWorkspacePage() {
                           </button>
                         </div>
                       </div>
+
+                      <div className="mt-5 rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-700">
+                          {task.assignees?.length
+                            ? 'Assigned to'
+                            : 'Not assigned yet'}
+                        </p>
+
+                        {task.assignees?.length ? (
+                          <ul className="mt-2 space-y-1">
+                            {task.assignees.map((assignee) => (
+                              <li
+                                key={assignee.id}
+                                className="text-sm text-slate-600"
+                              >
+                                {assignee.name ||
+                                  assignee.username ||
+                                  assignee.email}{' '}
+                                ({assignee.email})
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-5 border-t border-slate-200 pt-4">
+                        <h4 className="mb-3 text-sm font-semibold text-slate-800">
+                          Assign this task to
+                        </h4>
+
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <select
+                            aria-label={`Assign ${task.title} to a user`}
+                            value={selectedUsers[task.id] ?? ''}
+                            onChange={(event) =>
+                              setSelectedUsers((current) => ({
+                                ...current,
+                                [task.id]: event.target.value,
+                              }))
+                            }
+                            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                          >
+                            <option value="">
+                              Select a registered user
+                            </option>
+
+                            {users
+                              .filter(
+                                (user) =>
+                                  !(task.assignees ?? []).some(
+                                    (assignee) =>
+                                      assignee.id === user.id,
+                                  ),
+                              )
+                              .map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.name ||
+                                    user.username ||
+                                    user.email}{' '}
+                                  ({user.email})
+                                </option>
+                              ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => void assignTask(task)}
+                            disabled={
+                              assigningTaskId === task.id ||
+                              users.length === 0
+                            }
+                            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {assigningTaskId === task.id
+                              ? 'Assigning...'
+                              : 'Assign task'}
+                          </button>
+                        </div>
+
+                        {users.length === 0 && (
+                          <p className="mt-2 text-xs text-slate-500">
+                            No registered users were found.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-5 border-t border-slate-200 pt-4">
+                        <h4 className="mb-3 text-sm font-semibold text-slate-800">
+                          Corrections &amp; Feedback
+                        </h4>
+
+                        <form
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void submitCorrection(task);
+                          }}
+                          className="space-y-3"
+                        >
+                          <textarea
+                            aria-label={`Correction or feedback for ${task.title}`}
+                            value={correctionInputs[task.id] ?? ''}
+                            onChange={(event) =>
+                              setCorrectionInputs((current) => ({
+                                ...current,
+                                [task.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Enter correction or feedback for this task..."
+                            rows={3}
+                            className="w-full rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-500"
+                          />
+
+                          <button
+                            type="submit"
+                            disabled={savingCorrectionTaskId === task.id}
+                            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                          >
+                            {savingCorrectionTaskId === task.id
+                              ? 'Submitting...'
+                              : 'Submit Correction'}
+                          </button>
+                        </form>
+
+                        <button
+                          type="button"
+                          onClick={() => void loadCorrections(task)}
+                          className="mt-3 text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          Load Previous Feedback
+                        </button>
+
+                        {corrections[task.id] !== undefined && (
+                          <div className="mt-4 space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <h5 className="text-sm font-semibold text-slate-800">
+                                Feedback History
+                              </h5>
+
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                                {corrections[task.id].length}{' '}
+                                {corrections[task.id].length === 1
+                                  ? 'comment'
+                                  : 'comments'}
+                              </span>
+                            </div>
+
+                            {corrections[task.id].length === 0 ? (
+                              <div className="rounded-xl border border-dashed border-slate-300 p-5 text-center">
+                                <p className="text-sm text-slate-500">
+                                  No feedback has been submitted for this
+                                  task yet.
+                                </p>
+                              </div>
+                            ) : (
+                              corrections[task.id].map((correction) => (
+                                <div
+                                  key={correction.id}
+                                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700">
+                                        {(
+                                          correction.author?.name ||
+                                          correction.author?.username ||
+                                          correction.author?.email ||
+                                          'U'
+                                        )
+                                          .charAt(0)
+                                          .toUpperCase()}
+                                      </div>
+
+                                      <div className="min-w-0">
+                                        <p className="break-words text-sm font-semibold text-slate-800">
+                                          {correction.author?.name ||
+                                            correction.author?.username ||
+                                            correction.author?.email ||
+                                            'User'}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Task feedback
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span
+                                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                          correction.status === 'PENDING'
+                                            ? 'bg-amber-100 text-amber-800'
+                                            : correction.status ===
+                                                    'COMPLETED' ||
+                                                correction.status ===
+                                                    'RESOLVED'
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-slate-100 text-slate-700'
+                                        }`}
+                                      >
+                                        {correction.status.replace(
+                                          /_/g,
+                                          ' ',
+                                        )}
+                                      </span>
+
+                                      {correction.status === 'PENDING' && (
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            updatingCorrectionId ===
+                                            correction.id
+                                          }
+                                          onClick={() =>
+                                            void updateCorrectionStatus(
+                                              task,
+                                              correction.id,
+                                              'COMPLETED',
+                                            )
+                                          }
+                                          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                          {updatingCorrectionId ===
+                                          correction.id
+                                            ? 'Updating...'
+                                            : 'Mark as Completed'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-4 border-t border-slate-100 pt-3">
+                                    <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">
+                                      {correction.comment}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -646,5 +990,19 @@ export default function ProjectWorkspacePage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function ProjectWorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#f5f7fb] p-8 text-slate-600">
+          Loading project workspace...
+        </main>
+      }
+    >
+      <ProjectWorkspaceContent />
+    </Suspense>
   );
 }

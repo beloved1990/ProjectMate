@@ -6,9 +6,11 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Patch,
   Request,
   UseGuards,
 } from '@nestjs/common';
+
 import { TasksService } from './tasks.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 
@@ -18,6 +20,7 @@ export class TasksController {
   constructor(
     private readonly tasksService: TasksService,
   ) {}
+
   @Post()
   create(
     @Request() req: any,
@@ -29,13 +32,11 @@ export class TasksController {
       deadline?: string;
     },
   ) {
-   
-return this.tasksService.create(
-  Number(req.user.sub),
-  projectId,
-  data,
-);
-
+    return this.tasksService.create(
+      Number(req.user.sub),
+      projectId,
+      data,
+    );
   }
 
   @Get()
@@ -48,7 +49,7 @@ return this.tasksService.create(
       projectId,
     );
   }
-  
+
   @Post(':taskId/status')
   updateStatus(
     @Request() req: any,
@@ -63,7 +64,7 @@ return this.tasksService.create(
       data.status,
     );
   }
-  
+
   @Post(':taskId/assign')
   assign(
     @Request() req: any,
@@ -78,7 +79,7 @@ return this.tasksService.create(
       Number(data.assignedUserId),
     );
   }
-  
+
   @Post(':taskId/corrections')
   addCorrection(
     @Request() req: any,
@@ -91,6 +92,36 @@ return this.tasksService.create(
       projectId,
       taskId,
       data.comment,
+    );
+  }
+
+  @Get(':taskId/corrections')
+  findCorrections(
+    @Request() req: any,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('taskId', ParseIntPipe) taskId: number,
+  ) {
+    return this.tasksService.findCorrections(
+      Number(req.user.sub),
+      projectId,
+      taskId,
+    );
+  }
+
+  @Patch(':taskId/corrections/:correctionId/status')
+  updateCorrectionStatus(
+    @Request() req: any,
+    @Param('projectId', ParseIntPipe) projectId: number,
+    @Param('taskId', ParseIntPipe) taskId: number,
+    @Param('correctionId', ParseIntPipe) correctionId: number,
+    @Body() data: { status: string },
+  ) {
+    return this.tasksService.updateCorrectionStatus(
+      Number(req.user.sub),
+      projectId,
+      taskId,
+      correctionId,
+      data.status,
     );
   }
 }

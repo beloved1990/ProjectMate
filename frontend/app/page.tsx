@@ -494,7 +494,7 @@ export default function Home() {
             Your project. Your research. Your success.
           </p>
           <p className="text-sm text-slate-400">
-            © {new Date().getFullYear()} ProjectMate
+           © 2026 ProjectMate. Built for your success.
           </p>
         </div>
       </footer>
