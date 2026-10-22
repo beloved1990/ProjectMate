@@ -75,6 +75,20 @@ const steps = [
   },
 ];
 
+function SignupLink({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Link href="/register" className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen overflow-hidden bg-white text-slate-900">
@@ -102,19 +116,16 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/login"
-              className="hidden rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:inline-flex"
+              className="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 sm:px-4"
             >
               Log in
             </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:bg-indigo-700 sm:px-5"
-            >
-              Get started <span aria-hidden="true">→</span>
-            </Link>
+            <SignupLink className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:bg-indigo-700 sm:px-5">
+              Sign Up <span aria-hidden="true">→</span>
+            </SignupLink>
           </div>
         </nav>
       </header>
@@ -148,12 +159,9 @@ export default function Home() {
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-indigo-600 px-7 py-4 font-bold text-white shadow-xl shadow-indigo-200 transition hover:-translate-y-1 hover:bg-indigo-700"
-              >
-                Start your project <span aria-hidden="true">→</span>
-              </Link>
+              <SignupLink className="inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-indigo-600 px-7 py-4 font-bold text-white shadow-xl shadow-indigo-200 transition hover:-translate-y-1 hover:bg-indigo-700">
+                Create your account <span aria-hidden="true">→</span>
+              </SignupLink>
               <a
                 href="#features"
                 className="inline-flex min-h-14 items-center justify-center rounded-xl border border-slate-200 bg-white px-7 py-4 font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50"
@@ -240,9 +248,7 @@ export default function Home() {
                     <p className="mt-3 text-3xl font-extrabold text-slate-900">
                       12
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Work items
-                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Work items</p>
                   </div>
                 </div>
 
@@ -392,12 +398,9 @@ export default function Home() {
                 Big academic projects become easier to manage when you know
                 what to work on, what to review, and what to do next.
               </p>
-              <Link
-                href="/login"
-                className="mt-7 inline-flex items-center gap-2 font-bold text-indigo-600 transition hover:text-indigo-800"
-              >
+              <SignupLink className="mt-7 inline-flex items-center gap-2 font-bold text-indigo-600 transition hover:text-indigo-800">
                 Start your journey <span aria-hidden="true">→</span>
-              </Link>
+              </SignupLink>
             </div>
 
             <div className="space-y-4">
@@ -424,7 +427,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About / value proposition */}
+      {/* About */}
       <section id="about" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
         <div className="mx-auto grid max-w-7xl gap-10 rounded-3xl bg-[#111b3a] p-7 text-white sm:p-10 lg:grid-cols-2 lg:items-center lg:p-14">
           <div>
@@ -468,18 +471,15 @@ export default function Home() {
               Your next chapter starts here
             </p>
             <h2 className="mx-auto mt-5 max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-              Don't just submit a project. Understand it. Defend it.
+              Don&apos;t just submit a project. Understand it. Defend it.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl leading-8 text-indigo-100">
               Take the next step toward a more organized, confident academic
               journey with ProjectMate.
             </p>
-            <Link
-              href="/login"
-              className="mt-8 inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-white px-7 py-4 font-bold text-indigo-700 shadow-lg transition hover:-translate-y-1 hover:bg-indigo-50"
-            >
-              Get started with ProjectMate <span aria-hidden="true">→</span>
-            </Link>
+            <SignupLink className="mt-8 inline-flex min-h-14 items-center justify-center gap-3 rounded-xl bg-white px-7 py-4 font-bold text-indigo-700 shadow-lg transition hover:-translate-y-1 hover:bg-indigo-50">
+              Sign up for ProjectMate <span aria-hidden="true">→</span>
+            </SignupLink>
           </div>
         </div>
       </section>
@@ -494,7 +494,7 @@ export default function Home() {
             Your project. Your research. Your success.
           </p>
           <p className="text-sm text-slate-400">
-           © 2026 ProjectMate. Built for your success.
+            © 2026 ProjectMate. Built for your success.
           </p>
         </div>
       </footer>
