@@ -20,6 +20,7 @@ export type CitationCheckInput = {
   references: string;
   citationStyle?: string;
 };
+
 export type ProjectCoachInput = {
   topic: string;
   problemStatement?: string;
@@ -38,7 +39,6 @@ export class AiService {
 
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
-
     this.gemini = apiKey ? new GoogleGenAI({ apiKey }) : null;
   }
 
@@ -53,7 +53,9 @@ export class AiService {
     }
 
     if (!question?.trim()) {
-      throw new BadRequestException('A research question is required.');
+      throw new BadRequestException(
+        'A research question is required.',
+      );
     }
 
     const prompt = `
@@ -285,7 +287,9 @@ IMPORTANT RULES:
     return this.generateAiResponse(prompt);
   }
 
-  async generateProjectCoach(input: ProjectCoachInput): Promise<string> {
+  async generateProjectCoach(
+    input: ProjectCoachInput,
+  ): Promise<string> {
     if (!this.gemini) {
       throw new ServiceUnavailableException(
         'Gemini is not configured. Check GEMINI_API_KEY in the backend .env file.',
@@ -311,20 +315,19 @@ IMPORTANT RULES:
     };
 
     const researchDetails = Object.entries(sections)
-      .map(([name, content]) =>
-        `${name}:\n${
-          typeof content === 'string' && content.trim()
-            ? content.trim()
-            : 'NOT PROVIDED — mark as Not assessed; do not penalize.'
-        }`,
+      .map(
+        ([name, content]) =>
+          `${name}:\n${
+            typeof content === 'string' && content.trim()
+              ? content.trim()
+              : 'NOT PROVIDED — mark as Not assessed; do not penalize.'
+          }`,
       )
       .join('\n\n');
 
     const prompt = `
 You are ProjectMate's Project Intelligence and Research Coach.
 Help tertiary students improve their academic research and prepare for project defence.
-
-Review the research information provided below.
 
 IMPORTANT SCORING RULES:
 1. Assess only information actually provided.
@@ -381,6 +384,7 @@ RULES:
   the student for their absence.
 - Make the advice practical for Nigerian ND, HND, university,
   and college of education students.
+
 DEFENCE PREPARATION
 
 Prepare the student to defend the research project before an academic
@@ -440,6 +444,7 @@ IMPORTANT RULES:
   university, and college of education students.
 - Encourage the student to answer in their own words and verify
   their answers against their actual project.
+
 NEXT STEP
 Recommend one practical action the student should take next.
 `;
@@ -447,18 +452,18 @@ Recommend one practical action the student should take next.
     return this.generateAiResponse(prompt);
   }
 
-async generateProblemStatement(input: {
-  topic: string;
-  problemStatement?: string;
-  objectives?: string;
-}): Promise<string> {
-  if (!input.topic?.trim()) {
-    throw new BadRequestException(
-      'Please provide your research topic.',
-    );
-  }
+  async generateProblemStatement(input: {
+    topic: string;
+    problemStatement?: string;
+    objectives?: string;
+  }): Promise<string> {
+    if (!input.topic?.trim()) {
+      throw new BadRequestException(
+        'Please provide your research topic.',
+      );
+    }
 
-  const prompt = `
+    const prompt = `
 You are an academic research writing assistant for Nigerian ND, HND,
 university, and college of education students.
 
@@ -496,10 +501,12 @@ Instructions:
 Generate the draft now.
 `;
 
-  return this.generateAiResponse(prompt);
-}
+    return this.generateAiResponse(prompt);
+  }
 
-  private async generateAiResponse(prompt: string): Promise<string> {
+  private async generateAiResponse(
+    prompt: string,
+  ): Promise<string> {
     try {
       if (!this.gemini) {
         throw new ServiceUnavailableException(
@@ -520,7 +527,9 @@ Generate the draft now.
           break;
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : String(error);
+            error instanceof Error
+              ? error.message
+              : String(error);
 
           const isTemporaryError =
             errorMessage.includes('503') ||
@@ -541,7 +550,7 @@ Generate the draft now.
 
       if (!answer?.trim()) {
         throw new ServiceUnavailableException(
-          'The AI returned an empty response. Please try again.',
+          'The AI assistant returned an empty response. Please try again in a few moments.',
         );
       }
 
@@ -553,11 +562,13 @@ Generate the draft now.
 
       console.error(
         'ProjectMate Gemini request failed:',
-        error instanceof Error ? error.message : 'Unknown error',
+        error instanceof Error
+          ? error.message
+          : 'Unknown error',
       );
 
       throw new ServiceUnavailableException(
-        'The AI assistant could not respond. Gemini may be temporarily unavailable, or your API access or usage limit may need checking.',
+        'Our AI assistant is temporarily unavailable. Please try again in a few moments. If the problem continues, kindly try again later.',
       );
     }
   }

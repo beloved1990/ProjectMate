@@ -7,6 +7,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+
 import { UsersService } from './users.service.js';
 import { RegisterDto } from './register.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
@@ -25,6 +26,20 @@ export class UsersController {
     return this.usersService.login(data);
   }
 
+@Post('forgot-password')
+forgotPassword(@Body() data: { email: string }) {
+  console.log('FORGOT PASSWORD ENDPOINT HIT');
+
+  return this.usersService.forgotPassword(data);
+}
+
+  @Post('reset-password')
+  resetPassword(
+    @Body() data: { token: string; newPassword: string },
+  ) {
+    return this.usersService.resetPassword(data);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   getProfile(@Request() req: any) {
@@ -33,7 +48,8 @@ export class UsersController {
       user: req.user,
     };
   }
-    @UseGuards(JwtAuthGuard)
+
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll() {
     return this.usersService.findAll();

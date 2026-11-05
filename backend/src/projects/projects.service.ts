@@ -10,7 +10,11 @@ import { db } from '../prisma/db.js';
 export class ProjectsService {
   async create(
     userId: number,
-    data: { name: string; description?: string },
+  data: {
+  name: string;
+  description?: string;
+  submissionDate?: string;
+},
   ) {
     const name = data.name?.trim();
 
@@ -18,11 +22,14 @@ export class ProjectsService {
       throw new BadRequestException('Project name is required.');
     }
 
-    const project = await db.orm.public.Project.create({
-      name,
-      description: data.description?.trim() || null,
-      ownerId: userId,
-    });
+const project = await db.orm.public.Project.create({
+  name,
+  description: data.description?.trim() || null,
+  submissionDate: data.submissionDate
+    ? new Date(data.submissionDate).toISOString()
+    : null,
+  ownerId: userId,
+});
 
     return {
       message: 'Project created successfully.',

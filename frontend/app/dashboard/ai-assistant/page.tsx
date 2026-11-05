@@ -32,7 +32,7 @@ export default function AiAssistantPage() {
 
     try {
       const response = await fetch(
-       `${process.env.NEXT_PUBLIC_API_URL}/ai/research-assistant`,
+        `${process.env.NEXT_PUBLIC_API_URL}/ai/research-assistant`,
         {
           method: 'POST',
           headers: {
@@ -46,27 +46,67 @@ export default function AiAssistantPage() {
         },
       );
 
-      const data = await response.json();
+      let data: any;
 
-      if (!response.ok) {
+      try {
+        data = await response.json();
+      } catch {
         throw new Error(
-          typeof data.message === 'string'
-            ? data.message
-            : 'The AI assistant could not respond.',
+          'We could not process your request right now. Please try again shortly.',
         );
       }
 
-      if (typeof data.answer !== 'string' || !data.answer.trim()) {
-        throw new Error('The AI returned an empty response.');
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(
+          'Your session may have expired. Please log in again to continue.',
+        );
+      }
+
+      if (!response.ok) {
+        if (response.status === 429 || response.status === 503) {
+          throw new Error(
+            'Our AI assistant is temporarily unavailable. Please try again in a few moments. If the problem continues, kindly try again later.',
+          );
+        }
+
+        if (response.status >= 500) {
+          throw new Error(
+            'Something went wrong while processing your request. Please try again shortly.',
+          );
+        }
+
+        throw new Error(
+          typeof data?.message === 'string' &&
+            response.status === 400
+            ? data.message
+            : 'We could not complete your request. Please check your information and try again.',
+        );
+      }
+
+      if (
+        typeof data?.answer !== 'string' ||
+        !data.answer.trim()
+      ) {
+        throw new Error(
+          'The AI assistant could not generate a response this time. Please try again.',
+        );
       }
 
       setAnswer(data.answer);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not connect to the AI service.',
-      );
+      if (
+        err instanceof TypeError
+      ) {
+        setError(
+          'We could not connect to ProjectMate. Please check your internet connection and try again.',
+        );
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Something went wrong. Please try again later.',
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -138,6 +178,7 @@ export default function AiAssistantPage() {
                 rows={3}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
               />
+
               <p className="mt-2 text-xs text-slate-500">
                 Adding context helps tailor the response to your research.
               </p>
@@ -159,6 +200,7 @@ export default function AiAssistantPage() {
               className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700"
             >
               {error}
+
               {error.toLowerCase().includes('log in') && (
                 <Link
                   href="/login"
@@ -177,10 +219,12 @@ export default function AiAssistantPage() {
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-xl text-indigo-600">
                 ✦
               </div>
+
               <div>
                 <h2 className="font-extrabold text-slate-900">
                   Your AI response
                 </h2>
+
                 <p className="mt-1 text-xs text-slate-500">
                   Review and verify important academic information.
                 </p>

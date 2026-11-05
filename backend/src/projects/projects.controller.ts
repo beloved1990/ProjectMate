@@ -21,7 +21,12 @@ export class ProjectsController {
   @Post()
   create(
     @Request() req: any,
-    @Body() data: { name: string; description?: string },
+  @Body()
+data: {
+  name: string;
+  description?: string;
+  submissionDate?: string;
+},
   ) {
     return this.projectsService.create(
       Number(req.user.sub),
