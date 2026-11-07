@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 
 type Project = {
@@ -119,8 +119,7 @@ export default function DashboardPage() {
   const [userName, setUserName] = useState('Student');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Calculate the user's local date after the page mounts.
-  // This prevents Next.js from evaluating the current time during prerendering.
+  // Calculate the local date after mounting to avoid prerendering errors.
   useEffect(() => {
     const now = new Date();
 
@@ -140,6 +139,12 @@ export default function DashboardPage() {
       setProjects([]);
       setTaskStats({});
       setMessage('Please log in to view your projects.');
+      setLoading(false);
+      return;
+    }
+
+    if (!API_URL) {
+      setMessage('The backend API URL is not configured.');
       setLoading(false);
       return;
     }
@@ -229,7 +234,7 @@ export default function DashboardPage() {
     void loadProjects();
   }, [loadProjects]);
 
-  async function createProject(e: React.FormEvent<HTMLFormElement>) {
+  async function createProject(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage('');
 
@@ -237,6 +242,11 @@ export default function DashboardPage() {
 
     if (!token) {
       setMessage('Please log in first.');
+      return;
+    }
+
+    if (!API_URL) {
+      setMessage('The backend API URL is not configured.');
       return;
     }
 
@@ -317,6 +327,8 @@ export default function DashboardPage() {
               <img
                 src="/projectmate-icon-192.png"
                 alt="ProjectMate logo"
+                width={44}
+                height={44}
                 className="h-11 w-11 rounded-2xl object-contain"
               />
 
@@ -333,7 +345,7 @@ export default function DashboardPage() {
 
             <button
               type="button"
-              onClick={() => setMenuOpen(!menuOpen)}
+              onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
               aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 text-xl hover:bg-white/10 lg:hidden"
