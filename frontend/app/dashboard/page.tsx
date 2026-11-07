@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -34,7 +35,8 @@ const tools = [
     label: 'AI Research Assistant',
     href: '/dashboard/ai-assistant',
     icon: '✦',
-    description: 'Get AI assistance with research questions, concepts and academic writing.',
+    description:
+      'Get AI assistance with research questions, concepts and academic writing.',
     steps: [
       'Open the AI Research Assistant using the button below.',
       'Enter the research question or academic issue you need help with.',
@@ -48,7 +50,8 @@ const tools = [
     label: 'Research Consistency',
     href: '/dashboard/research-consistency',
     icon: '⇄',
-    description: 'Examine whether the major parts of your research agree with one another.',
+    description:
+      'Examine whether the major parts of your research agree with one another.',
     steps: [
       'Open the Research Consistency tool.',
       'Enter your research topic.',
@@ -64,7 +67,8 @@ const tools = [
     label: 'Research Coach',
     href: '/dashboard/research-coach',
     icon: '🧠',
-    description: 'Get guidance on improving the quality, direction and development of your research.',
+    description:
+      'Get guidance on improving the quality, direction and development of your research.',
     steps: [
       'Open the Research Coach.',
       'Provide the research information requested by the form.',
@@ -79,7 +83,8 @@ const tools = [
     label: 'Citation Checker',
     href: '/dashboard/citation-checker',
     icon: '✓',
-    description: 'Review your citations and references for possible formatting and consistency problems.',
+    description:
+      'Review your citations and references for possible formatting and consistency problems.',
     steps: [
       'Open the Citation Checker.',
       'Paste the research text containing your in-text citations.',
@@ -107,11 +112,26 @@ export default function DashboardPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [submissionDate, setSubmissionDate] = useState('');
+  const [today, setToday] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [userName, setUserName] = useState('Student');
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Calculate the user's local date after the page mounts.
+  // This prevents Next.js from evaluating the current time during prerendering.
+  useEffect(() => {
+    const now = new Date();
+
+    const localDate = new Date(
+      now.getTime() - now.getTimezoneOffset() * 60000,
+    )
+      .toISOString()
+      .split('T')[0];
+
+    setToday(localDate);
+  }, []);
 
   const loadProjects = useCallback(async () => {
     const token = localStorage.getItem('projectmate_token');
@@ -128,7 +148,9 @@ export default function DashboardPage() {
 
     try {
       const response = await fetch(`${API_URL}/projects`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
       const data = await response.json();
@@ -148,12 +170,17 @@ export default function DashboardPage() {
             const taskResponse = await fetch(
               `${API_URL}/projects/${project.id}/tasks`,
               {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
               },
             );
 
             if (!taskResponse.ok) {
-              return [project.id, { total: 0, completed: 0 }] as const;
+              return [
+                project.id,
+                { total: 0, completed: 0 },
+              ] as const;
             }
 
             const taskData = await taskResponse.json();
@@ -169,7 +196,10 @@ export default function DashboardPage() {
               },
             ] as const;
           } catch {
-            return [project.id, { total: 0, completed: 0 }] as const;
+            return [
+              project.id,
+              { total: 0, completed: 0 },
+            ] as const;
           }
         }),
       );
@@ -232,7 +262,7 @@ export default function DashboardPage() {
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim(),
-          submissionDate: submissionDate,
+          submissionDate,
         }),
       });
 
@@ -680,7 +710,7 @@ export default function DashboardPage() {
                     value={submissionDate}
                     onChange={(e) => setSubmissionDate(e.target.value)}
                     required
-                    min={new Date().toISOString().split('T')[0]}
+                    min={today}
                     className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                   />
                 </div>
