@@ -66,6 +66,8 @@ export class UsersService {
   }
 
   async login(data: { email: string; password: string }) {
+    const loginStarted = Date.now();
+
     const email = data.email?.trim().toLowerCase();
     const password = data.password;
 
@@ -75,31 +77,66 @@ export class UsersService {
       );
     }
 
+    // 1. Measure database lookup
+    const databaseStarted = Date.now();
+
     const users = await db.orm.public.User
       .where({ email })
       .limit(1)
       .all();
 
+    const databaseDuration = Date.now() - databaseStarted;
     const user = users[0];
 
-    if (!user) {
+    if (!user || !user.password) {
+      console.log('ProjectMate login performance:', {
+        databaseDurationMs: databaseDuration,
+        totalDurationMs: Date.now() - loginStarted,
+      });
+
       throw new UnauthorizedException(
         'Invalid email or password.',
       );
     }
 
-   if (!user || !user.password) {
-  throw new UnauthorizedException('Invalid email or password.');
-}
+    // 2. Measure password verification
+    const passwordStarted = Date.now();
 
-const passwordMatches = await compare(password, user.password);
+    const passwordMatches = await compare(
+      password,
+      user.password,
+    );
 
-if (!passwordMatches) {
-  throw new UnauthorizedException('Invalid email or password.');
-}
+    const passwordDuration = Date.now() - passwordStarted;
+
+    if (!passwordMatches) {
+      console.log('ProjectMate login performance:', {
+        databaseDurationMs: databaseDuration,
+        passwordDurationMs: passwordDuration,
+        totalDurationMs: Date.now() - loginStarted,
+      });
+
+      throw new UnauthorizedException(
+        'Invalid email or password.',
+      );
+    }
+
+    // 3. Measure JWT generation
+    const jwtStarted = Date.now();
+
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
       email: user.email,
+    });
+
+    const jwtDuration = Date.now() - jwtStarted;
+
+    // 4. Log performance without exposing credentials
+    console.log('ProjectMate login performance:', {
+      databaseDurationMs: databaseDuration,
+      passwordDurationMs: passwordDuration,
+      jwtDurationMs: jwtDuration,
+      totalDurationMs: Date.now() - loginStarted,
     });
 
     return {
